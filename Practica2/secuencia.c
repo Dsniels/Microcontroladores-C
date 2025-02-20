@@ -41,13 +41,6 @@ void autoFantastico(){
 }
 
 
-void autoFantasticoConFor(){
-
-    for(int i = 0; i < 7; i++){
-        PORTD = (1 << i);
-        
-    }
-}
 
 
 void secuenciaRandom(){
