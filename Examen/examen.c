@@ -1,9 +1,8 @@
+
 #include <avr/io.h>
-#include "./inputs.h"
-#define F_CPU 16000000UL
+#define RETARDO 10000
 #include <util/delay.h>
 
-// Etiquetas
 // Inputs
 #define BTNS_DDRX DDRC
 #define BTNS_PINX PINC
@@ -30,6 +29,24 @@
 #define DISPLAY_5 PORTD4
 #define DISPLAY_6 PORTD5
 #define DISPLAY_7 PORTD6
+const uint8_t tabla7seg[17] = {
+    0b11111110, // 0
+    0b11101101, // 2
+    0b00110000, // 1
+    0b11111001, // 3
+    0b10110011, // 4
+    0b11011011, // 5
+    0b11011111, // 6
+    0b11110000, // 7
+    0b11111111, // 8
+    0b11111011, // 9
+    0b11110111, // A
+    0b10011111, // B
+    0b11001110, // C
+    0b10111101, // D
+    0b11001111, // E
+    0b11000111, // F
+    0b11100111};
 
 #define LEDS_DDRX DDRB
 #define LEDS_PORTX PORTB
@@ -67,30 +84,37 @@ int main(void)
 {
   btns_init();
   leds_init();
+  display_init();
   while (1)
   { // 0bXXXXXXXX
     //     &
     // 0b00000100
     // 0b00000X00
-    if(BTNS_0_READ){
+    if (!BTNS_2_READ)
+    {
       leds_on();
+      display_F();
       continue;
     }
     if (!(BTNS_1_READ) && !(BTNS_0_READ))
     {
-      leds_centrales_exteriores();
+      display_P();
+      leds_parpadeo();
     }
     else if (!(BTNS_1_READ) && (BTNS_0_READ))
     {
+      display_1();
       leds_izquierda_derecha();
     }
     else if ((BTNS_1_READ) && !(BTNS_0_READ))
     {
+      display_2();
       leds_derecha_izquierda();
     }
     else if ((BTNS_1_READ) && (BTNS_0_READ))
     {
-      leds_parpadeo();
+      display_E();
+      leds_centrales_exteriores();
     }
   }
 }
@@ -111,68 +135,6 @@ void leds_init(void)
   LEDS_DDRX |= (1 << LEDS_4);
 }
 
-void leds_auto_fantastico(void)
-{
-  // 76543210
-  LEDS_PORTX = (1 << LEDS_1);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_2);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_3);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_4);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_5);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_6);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_5);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_4);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_3);
-  _delay_ms(RETARDO);
-  LEDS_PORTX = (1 << LEDS_2);
-  _delay_ms(RETARDO);
-}
-void leds_off(void)
-{
-  LEDS_PORTX &= ~(1 << LEDS_1);
-  LEDS_PORTX &= ~(1 << LEDS_2);
-  LEDS_PORTX &= ~(1 << LEDS_3);
-  LEDS_PORTX &= ~(1 << LEDS_4);
-  LEDS_PORTX &= ~(1 << LEDS_5);
-  LEDS_PORTX &= ~(1 << LEDS_6);
-}
-void leds_free(void)
-{
-  // 76543210
-  LEDS_PORTX |= (1 << LEDS_1); 
-  _delay_ms(RETARDO);
-  LEDS_PORTX |= (1 << LEDS_2);
-  _delay_ms(RETARDO);
-  LEDS_PORTX |= (1 << LEDS_3);
-  _delay_ms(RETARDO);
-  LEDS_PORTX |= (1 << LEDS_4);
-  _delay_ms(RETARDO);
-  LEDS_PORTX |= (1 << LEDS_5);
-  _delay_ms(RETARDO);
-  LEDS_PORTX |= (1 << LEDS_6);
-  _delay_ms(RETARDO);
-  LEDS_PORTX &= ~(1 << LEDS_6);
-  _delay_ms(RETARDO);
-  LEDS_PORTX &= ~(1 << LEDS_5);
-  _delay_ms(RETARDO);
-  LEDS_PORTX &= ~(1 << LEDS_4);
-  _delay_ms(RETARDO);
-  LEDS_PORTX &= ~(1 << LEDS_3);
-  _delay_ms(RETARDO);
-  LEDS_PORTX &= ~(1 << LEDS_2);
-  _delay_ms(RETARDO);
-  LEDS_PORTX &= ~(1 << LEDS_1);
-  _delay_ms(RETARDO);
-}
-
 void leds_on(void)
 {
   LEDS_PORTX |= (1 << LEDS_1);
@@ -181,44 +143,81 @@ void leds_on(void)
   LEDS_PORTX |= (1 << LEDS_4);
 }
 
-void leds_centrales_exteriores(void){
+void leds_centrales_exteriores(void)
+{
+  _delay_ms(RETARDO);
+
+  LEDS_PORTX &= ~(1 << LEDS_2);
+  LEDS_PORTX &= ~(1 << LEDS_3);
+
   LEDS_PORTX |= (1 << LEDS_1);
   LEDS_PORTX |= (1 << LEDS_4);
   _delay_ms(RETARDO);
+  LEDS_PORTX &= ~(1 << LEDS_1);
+  LEDS_PORTX &= ~(1 << LEDS_4);
+  _delay_ms(RETARDO);
+
   LEDS_PORTX |= (1 << LEDS_2);
   LEDS_PORTX |= (1 << LEDS_3);
+  _delay_ms(RETARDO);
 }
 
-void leds_izquierda_derecha(void){
-  for(int i = 0; i <= 4; i++){
-    LEDS_PORTX = (1<<i);
+void leds_izquierda_derecha(void)
+{
+  for (int i = 0; i <= 4; i++)
+  {
+    LEDS_PORTX = (1 << i);
     _delay_ms(RETARDO);
   }
 }
 
-void leds_derecha_izquierda(void){
-  for(int i = 4; i >= 0; i--){
-    LEDS_PORTX = (1>>i);
+void leds_derecha_izquierda(void)
+{
+  for (int i = 4; i >= 0; i--)
+  {
+    LEDS_PORTX = (1 << i);
     _delay_ms(RETARDO);
   }
 }
 
-void leds_parpadeo(void){
+void leds_parpadeo(void)
+{
+  _delay_ms(RETARDO);
   LEDS_PORTX |= (1 << LEDS_1);
   LEDS_PORTX |= (1 << LEDS_2);
   LEDS_PORTX |= (1 << LEDS_3);
   LEDS_PORTX |= (1 << LEDS_4);
-    _delay_ms(RETARDO);
+  _delay_ms(RETARDO);
   LEDS_PORTX &= ~(1 << LEDS_1);
   LEDS_PORTX &= ~(1 << LEDS_2);
   LEDS_PORTX &= ~(1 << LEDS_3);
   LEDS_PORTX &= ~(1 << LEDS_4);
+  _delay_ms(RETARDO);
 }
 
-// display
-void display_init(void);
-void display_E(void);
-void display_1(void);
-void display_2(void);
-void display_P(void);
-void display_F(void);
+void display_init(void)
+{
+  DISPLAY_DDRX = 0b01111111;
+}
+void display_E(void)
+{
+  DISPLAY_PORTX = tabla7seg[14];
+}
+
+void display_1(void)
+{
+  DISPLAY_PORTX = tabla7seg[1];
+}
+void display_2(void)
+{
+
+  DISPLAY_PORTX = tabla7seg[2];
+}
+void display_P(void)
+{
+  DISPLAY_PORTX = tabla7seg[16];
+}
+void display_F(void)
+{
+  DISPLAY_PORTX = tabla7seg[15];
+}
