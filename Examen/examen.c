@@ -1,7 +1,8 @@
 
 #include <avr/io.h>
-#define RETARDO 10000
+#define RETARDO 100
 #include <util/delay.h>
+#define F_CPU 16000000UL
 
 // Inputs
 #define BTNS_DDRX DDRC
@@ -10,7 +11,7 @@
 #define BTNS_0 PINC2
 #define BTNS_1 PINC3
 #define BTNS_2 PINC4
-
+// Motor
 #define MOTOR_0 PORTC0
 #define MOTOR_1 PORTC1
 
@@ -29,40 +30,27 @@
 #define DISPLAY_5 PORTD4
 #define DISPLAY_6 PORTD5
 #define DISPLAY_7 PORTD6
-const uint8_t tabla7seg[17] = {
-    0b11111110, // 0
-    0b11101101, // 2
+
+const uint8_t tabla7seg[] = {
+    0b01111110, // 0
     0b00110000, // 1
-    0b11111001, // 3
-    0b10110011, // 4
-    0b11011011, // 5
-    0b11011111, // 6
-    0b11110000, // 7
-    0b11111111, // 8
-    0b11111011, // 9
-    0b11110111, // A
-    0b10011111, // B
-    0b11001110, // C
-    0b10111101, // D
+    0b01101101, // 2
+    0b01111001, // 3
     0b11001111, // E
     0b11000111, // F
-    0b11100111};
+    0b01100111,//P
+};
 
 #define LEDS_DDRX DDRB
 #define LEDS_PORTX PORTB
-#define LEDS_1 PORTB0
-#define LEDS_2 PORTB1
-#define LEDS_3 PORTB2
-#define LEDS_4 PORTB3
+#define LEDS_1 PORTB2
+#define LEDS_2 PORTB3
+#define LEDS_3 PORTB4
+#define LEDS_4 PORTB5
+#define MOTOR_2 PORTB1
 
-// Macros
-#define LEDS_1_ON LEDS_PORTX |= (1 << LEDS_1)
-#define LEDS_1_OFF LEDS_PORTX &= ~(1 << LEDS_1)
-
-// Declaración de funciones
 // botones
 void btns_init(void);
-
 // leds
 void leds_init(void);
 void leds_centrales_exteriores(void);
@@ -70,6 +58,13 @@ void leds_izquierda_derecha(void);
 void leds_derecha_izquierda(void);
 void leds_parpadeo(void);
 void leds_on(void);
+// motor
+void motor_init(void);
+void motor_off(void);
+void motor_izquierda(void);
+void motor_derecha(void);
+void motor_free_wheel(void);
+void motor_fast_stop(void);
 // display
 void display_init(void);
 void display_E(void);
@@ -78,53 +73,54 @@ void display_2(void);
 void display_P(void);
 void display_F(void);
 // Constante
-#define RETARDO 100
 
 int main(void)
 {
   btns_init();
+  motor_init();
   leds_init();
   display_init();
   while (1)
-  { // 0bXXXXXXXX
-    //     &
-    // 0b00000100
-    // 0b00000X00
+  {
     if (!BTNS_2_READ)
     {
       leds_on();
       display_F();
+            motor_fast_stop();
+
       continue;
     }
     if (!(BTNS_1_READ) && !(BTNS_0_READ))
     {
       display_P();
       leds_parpadeo();
+      motor_free_wheel();
     }
     else if (!(BTNS_1_READ) && (BTNS_0_READ))
     {
-      display_1();
+      display_2();
+
       leds_izquierda_derecha();
+      motor_derecha();
     }
     else if ((BTNS_1_READ) && !(BTNS_0_READ))
     {
-      display_2();
+      display_1();
+
       leds_derecha_izquierda();
+      motor_izquierda();
     }
     else if ((BTNS_1_READ) && (BTNS_0_READ))
     {
       display_E();
       leds_centrales_exteriores();
+      motor_off();
     }
   }
 }
 
 void btns_init(void)
-{ // 0bXXXXXXXX  //76543210
-  //      &
-  // 0b11100011
-  // 0bXXX000XX
-  // BTNS_DDRX = BTNS_DDRX & 0b11100011;
+{
   BTNS_DDRX &= 0b11100011;
 }
 void leds_init(void)
@@ -164,18 +160,20 @@ void leds_centrales_exteriores(void)
 
 void leds_izquierda_derecha(void)
 {
-  for (int i = 0; i <= 4; i++)
+  for (int i = LEDS_1; i <= LEDS_4; i++)
   {
-    LEDS_PORTX = (1 << i);
+    LEDS_PORTX &= ~(0b00111100);
+    LEDS_PORTX |= (1 << i);
     _delay_ms(RETARDO);
   }
 }
 
 void leds_derecha_izquierda(void)
 {
-  for (int i = 4; i >= 0; i--)
-  {
-    LEDS_PORTX = (1 << i);
+  for (int i= LEDS_4; i >= LEDS_1; i--)
+  { 
+    LEDS_PORTX &= ~(0b00111100);
+    LEDS_PORTX |= (1 << i);
     _delay_ms(RETARDO);
   }
 }
@@ -197,11 +195,11 @@ void leds_parpadeo(void)
 
 void display_init(void)
 {
-  DISPLAY_DDRX = 0b01111111;
+  DISPLAY_DDRX = 0b11111111;
 }
 void display_E(void)
 {
-  DISPLAY_PORTX = tabla7seg[14];
+  DISPLAY_PORTX = tabla7seg[4];
 }
 
 void display_1(void)
@@ -215,9 +213,46 @@ void display_2(void)
 }
 void display_P(void)
 {
-  DISPLAY_PORTX = tabla7seg[16];
+  DISPLAY_PORTX = tabla7seg[6];
 }
 void display_F(void)
 {
-  DISPLAY_PORTX = tabla7seg[15];
+  DISPLAY_PORTX = tabla7seg[5];
+}
+
+void motor_init(void)
+{
+  BTNS_DDRX |= (1 << MOTOR_0);
+  BTNS_DDRX |= (1 << MOTOR_1);
+  LEDS_DDRX |= (1 << MOTOR_2);
+  
+}
+void motor_off(void)
+{
+  BTNS_PORTX &= ~(1 << MOTOR_0);
+  BTNS_PORTX &= ~(1 << MOTOR_1);
+  LEDS_PORTX |= (1 << MOTOR_2);
+}
+void motor_izquierda(void)
+{
+  BTNS_PORTX |= (1 << MOTOR_1);
+  BTNS_PORTX &= ~(1 << MOTOR_0);
+  LEDS_PORTX |= (1 << MOTOR_2);
+}
+void motor_derecha(void)
+{
+
+  BTNS_PORTX |= (1 << MOTOR_0);
+  BTNS_PORTX &= ~(1 << MOTOR_1);
+  LEDS_PORTX |= (1 << MOTOR_2);
+}
+void motor_free_wheel(void)
+{
+  LEDS_PORTX &= ~(1 << MOTOR_2);
+}
+void motor_fast_stop(void)
+{
+  BTNS_PORTX &= ~(1 << MOTOR_1);
+  BTNS_PORTX &= ~(1 << MOTOR_0);
+  LEDS_PORTX |= (1 << MOTOR_2);
 }
